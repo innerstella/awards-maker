@@ -13,7 +13,6 @@ import AsciiTitle from "../../components/ascii-title"
 const Result = () => {
   const { selectedMonth, categories, comment, author } = useMonthlyAwardsStore()
   const [showCards, setShowCards] = useState(false)
-  const [isDownloading, setIsDownloading] = useState(false)
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
   const navigate = useNavigate()
 
@@ -32,30 +31,31 @@ const Result = () => {
     try {
       const canvas = await html2canvas(cardElement, {
         backgroundColor: "#000",
-        scale: 2,
+        scale: 1,
         logging: false,
         useCORS: true,
+        allowTaint: false,
+        foreignObjectRendering: false,
+        removeContainer: true,
+        width: cardElement.offsetWidth,
+        height: cardElement.offsetHeight,
       })
 
       const link = document.createElement("a")
-      link.download = `${selectedMonth}월-어워즈-${cardIndex + 1}.png`
+      link.download = `${selectedMonth ? `${selectedMonth}월` : "2025년"}-어워즈-${cardIndex + 1}.png`
       link.href = canvas.toDataURL("image/png")
+
+      // 모바일에서 다운로드를 보장하기 위해 document.body에 추가
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
+
+      // 다운로드가 완료될 때까지 대기
+      return new Promise<void>((resolve) => {
+        setTimeout(() => resolve(), 100)
+      })
     } catch (error) {
       console.error("이미지 다운로드 실패:", error)
-    }
-  }
-
-  const handleDownloadAll = async () => {
-    setIsDownloading(true)
-    try {
-      for (let i = 0; i < 4; i++) {
-        await downloadCard(i)
-        // 각 카드 다운로드 사이에 약간의 딜레이
-        await new Promise((resolve) => setTimeout(resolve, 300))
-      }
-    } finally {
-      setIsDownloading(false)
     }
   }
 
@@ -87,9 +87,10 @@ const Result = () => {
           </Content>
           {/* SECTION: 한 마디 */}
           <Content $isCenter>
-            <QuoteText>{comment || "올해 최고의 한 달이었다"}</QuoteText>
+            <QuoteText>{comment || "올해 최고였다"}</QuoteText>
             <QuoteAuthor>- {author || "익명"}</QuoteAuthor>
           </Content>
+          <Info>𖤐 이미지를 클릭하면 저장됩니다!</Info>
           {/* SECTION: 카드 리스트 */}
           {categories.map((category, index) => (
             <Card
@@ -97,23 +98,23 @@ const Result = () => {
                 cardRefs.current[index] = el
               }}
               $cardType="content"
+              $hasImage={!!category.url}
+              $imageUrl={category.url || ""}
+              onClick={() => downloadCard(index)}
+              style={{ cursor: "pointer" }}
+              data-card-index={index}
             >
               <GridBg />
+              {category.url && <ImageBg $imageUrl={category.url} />}
               <Scanline />
-              <Content>
+              <Content data-content>
                 <CategoryTitle>
                   <span>#</span>
                   <span>{category.name}</span>
                 </CategoryTitle>
-                <Items>
+                <Items data-items>
                   <ItemContent>{category.value || "-"}</ItemContent>
                 </Items>
-                {category.url && (
-                  <ImageWrapper>
-                    <CategoryImage src={category.url} alt={category.name} />
-                    <ImageOverlay />
-                  </ImageWrapper>
-                )}
               </Content>
               <CardLabel>{index + 1}/4</CardLabel>
             </Card>
@@ -121,9 +122,6 @@ const Result = () => {
         </Grid>
       </ScrollContainer>
       <ButtonGroup>
-        <Button onClick={handleDownloadAll} disabled={isDownloading}>
-          {isDownloading ? "다운로드 중..." : "이미지 다운로드"}
-        </Button>
         <Button onClick={() => navigate("/")}>다시하기</Button>
       </ButtonGroup>
     </PageContainer>
@@ -148,6 +146,13 @@ const PageContainer = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+`
+
+const Info = styled.p`
+  font-size: 14px;
+  color: ${COLOR.PRIMARY};
+  opacity: 0.6;
+  text-align: center;
 `
 
 const ScrollContainer = styled.div`
@@ -179,7 +184,11 @@ const Grid = styled.div`
   padding: 20px 0;
 `
 
-const Card = styled.div<{ $cardType: "cover" | "content" | "quote" }>`
+const Card = styled.div<{
+  $cardType: "cover" | "content" | "quote"
+  $hasImage?: boolean
+  $imageUrl?: string
+}>`
   width: 100%;
   max-width: 1000px;
   height: 560px;
@@ -236,7 +245,7 @@ const Scanline = styled.div`
 
 const Content = styled.div<{ $isCenter?: boolean }>`
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
   height: 100%;
   padding: 60px;
@@ -252,24 +261,6 @@ const Content = styled.div<{ $isCenter?: boolean }>`
 
   @media (max-width: 768px) {
     padding: 30px 20px;
-  }
-`
-
-const MainTitle = styled.div`
-  font-size: 100px;
-  color: ${COLOR.PRIMARY};
-  font-weight: 700;
-  text-shadow:
-    0 0 20px ${COLOR.PRIMARY},
-    0 0 40px ${COLOR.PRIMARY},
-    0 0 60px ${COLOR.PRIMARY};
-  line-height: 1.1;
-  margin-bottom: 30px;
-  text-align: center;
-
-  @media (max-width: 768px) {
-    font-size: 48px;
-    margin-bottom: 20px;
   }
 `
 
@@ -305,6 +296,8 @@ const CategoryTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 20px;
+  position: relative;
+  z-index: 3;
 
   @media (max-width: 768px) {
     font-size: 20px;
@@ -317,35 +310,37 @@ const Items = styled.div`
   display: flex;
   flex-direction: column;
   gap: 40px;
-  z-index: 10;
+  position: relative;
+  z-index: 3;
 
   @media (max-width: 768px) {
     gap: 20px;
   }
 `
 
-const ImageWrapper = styled.div`
-  position: relative;
-  top: -130px;
-  left: 40%;
-  display: inline-block;
-`
-
-const CategoryImage = styled.img`
-  height: auto;
-  object-fit: cover;
-  display: block;
-  width: 100%;
-`
-
-const ImageOverlay = styled.div`
+const ImageBg = styled.div<{ $imageUrl: string }>`
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 0;
+  background-image: url(${({ $imageUrl }) => $imageUrl});
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.4;
   pointer-events: none;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.3);
+  }
 `
 
 const ItemContent = styled.div`
@@ -353,6 +348,13 @@ const ItemContent = styled.div`
   color: ${COLOR.PRIMARY};
   font-weight: 700;
   text-shadow: 0 0 10px ${COLOR.PRIMARY};
+  position: relative;
+  z-index: 3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
 
   @media (max-width: 768px) {
     font-size: 24px;

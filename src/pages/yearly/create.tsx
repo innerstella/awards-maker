@@ -162,7 +162,7 @@ const InputCategory = styled.input`
   border: none;
   outline: none;
   color: ${COLOR.PRIMARY};
-  font-size: 14px;
+  font-size: 16px;
   padding: 4px 8px;
   width: 80px;
 
@@ -180,7 +180,7 @@ const InputValue = styled.input`
   border: none;
   outline: none;
   color: ${COLOR.PRIMARY};
-  font-size: 14px;
+  font-size: 16px;
   padding: 4px 8px;
   width: 130px;
 

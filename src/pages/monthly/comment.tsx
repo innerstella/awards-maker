@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom"
 
 const Comment = () => {
   const [isFocused, setIsFocused] = useState(false)
-  const [isAuthorFocused, setIsAuthorFocused] = useState(false)
   const { comment, setComment, author, setAuthor } = useMonthlyAwardsStore()
   const navigate = useNavigate()
 
@@ -26,12 +25,7 @@ const Comment = () => {
       <GridBackground />
       <FairyMent text="결과를 불러오는 동안,<br/>올해의 나에게 한 마디 남겨보세요!" />
       <AuthorInputWrapper>
-        <AuthorInput
-          value={author || ""}
-          onChange={handleAuthorChange}
-          onFocus={() => setIsAuthorFocused(true)}
-          onBlur={() => setIsAuthorFocused(false)}
-        />
+        <AuthorInput value={author || ""} onChange={handleAuthorChange} />
         <p>에게</p>
       </AuthorInputWrapper>
       <CommentInputWrapper>
@@ -95,6 +89,7 @@ const CommentInput = styled.input`
   background: transparent;
   color: ${COLOR.PRIMARY};
   caret-color: ${COLOR.PRIMARY};
+  font-size: 16px;
 
   &:focus {
     outline: none;
@@ -135,6 +130,7 @@ const AuthorInput = styled.input`
   color: ${COLOR.PRIMARY};
   caret-color: ${COLOR.PRIMARY};
   text-align: center;
+  font-size: 16px;
 
   &:focus {
     outline: none;
